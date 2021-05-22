@@ -25,6 +25,10 @@
 #include "sanitizer_common/sanitizer_thread_registry.h"
 #include "sanitizer_common/sanitizer_tls_get_addr.h"
 
+#if SANITIZER_EMSCRIPTEN
+#include "lsan/lsan_allocator.h"
+#endif
+
 #if CAN_SANITIZE_LEAKS
 namespace __lsan {
 
@@ -115,7 +119,7 @@ static const char kStdSuppressions[] =
 
 void InitializeSuppressions() {
   CHECK_EQ(nullptr, suppression_ctx);
-  suppression_ctx = new (suppression_placeholder)
+  suppression_ctx = new (suppression_placeholder) // NOLINT
       LeakSuppressionContext(kSuppressionTypes, ARRAY_SIZE(kSuppressionTypes));
 }
 
@@ -273,7 +277,16 @@ void ScanRangeForPointers(uptr begin, uptr end, Frontier *frontier,
   uptr pp = begin;
   if (pp % alignment)
     pp = pp + alignment - pp % alignment;
-  for (; pp + sizeof(void *) <= end; pp += alignment) {
+
+  // Emscripten in non-threaded mode stores thread_local variables in the
+  // same place as normal globals. This means allocator_cache must be skipped
+  // when scanning globals instead of when scanning thread-locals.
+#if SANITIZER_EMSCRIPTEN && !defined(__EMSCRIPTEN_PTHREADS__)
+  uptr cache_begin, cache_end;
+  GetAllocatorCacheRange(&cache_begin, &cache_end);
+#endif
+
+  for (; pp + sizeof(void *) <= end; pp += alignment) {  // NOLINT
     void *p = *reinterpret_cast<void **>(pp);
     if (!CanBeAHeapPointer(reinterpret_cast<uptr>(p)))
       continue;
@@ -296,6 +309,14 @@ void ScanRangeForPointers(uptr begin, uptr end, Frontier *frontier,
           m.requested_size());
       continue;
     }
+
+#if SANITIZER_EMSCRIPTEN && !defined(__EMSCRIPTEN_PTHREADS__)
+    if (cache_begin <= pp && pp < cache_end) {
+      LOG_POINTERS("%p: skipping because it overlaps the cache %p-%p.\n",
+          pp, cache_begin, cache_end);
+      continue;
+    }
+#endif
 
     m.set_tag(tag);
     LOG_POINTERS("%p: found %p pointing into chunk %p-%p of size %zu.\n",
@@ -362,6 +383,7 @@ static void ProcessThreadRegistry(Frontier *frontier) {
   }
 }
 
+#if !SANITIZER_EMSCRIPTEN
 // Scans thread data (stacks and TLS) for heap pointers.
 static void ProcessThreads(SuspendedThreadsList const &suspended_threads,
                            Frontier *frontier) {
@@ -480,6 +502,7 @@ static void ProcessThreads(SuspendedThreadsList const &suspended_threads,
   // Add pointers reachable from ThreadContexts
   ProcessThreadRegistry(frontier);
 }
+#endif // !SANITIZER_EMSCRIPTEN
 
 #  endif  // SANITIZER_FUCHSIA
 
@@ -499,14 +522,22 @@ void ScanRootRegion(Frontier *frontier, const RootRegion &root_region,
                          kReachable);
 }
 
+#if SANITIZER_EMSCRIPTEN
+extern "C" uptr emscripten_get_heap_size();
+#endif
+
 static void ProcessRootRegion(Frontier *frontier,
                               const RootRegion &root_region) {
+#if SANITIZER_EMSCRIPTEN
+  ScanRootRegion(frontier, root_region, 0, emscripten_get_heap_size(), true);
+#else
   MemoryMappingLayout proc_maps(/*cache_enabled*/ true);
   MemoryMappedSegment segment;
   while (proc_maps.Next(&segment)) {
     ScanRootRegion(frontier, root_region, segment.start, segment.end,
                    segment.IsReadable());
   }
+#endif // SANITIZER_EMSCRIPTEN
 }
 
 // Scans root regions for heap pointers.
@@ -675,7 +706,9 @@ static void CheckForLeaksCallback(const SuspendedThreadsList &suspended_threads,
   CheckForLeaksParam *param = reinterpret_cast<CheckForLeaksParam *>(arg);
   CHECK(param);
   CHECK(!param->success);
+#if !SANITIZER_EMSCRIPTEN
   ReportUnsuspendedThreads(suspended_threads);
+#endif
   ClassifyAllChunks(suspended_threads, &param->frontier);
   ForEachChunk(CollectLeaksCb, &param->leaks);
   // Clean up for subsequent leak checks. This assumes we did not overwrite any
@@ -771,6 +804,53 @@ static int DoRecoverableLeakCheck() {
 
 void DoRecoverableLeakCheckVoid() { DoRecoverableLeakCheck(); }
 
+<<<<<<< HEAD
+=======
+Suppression *LeakSuppressionContext::GetSuppressionForAddr(uptr addr) {
+  Suppression *s = nullptr;
+
+  // Suppress by module name.
+  if (const char *module_name =
+          Symbolizer::GetOrInit()->GetModuleNameForPc(addr))
+    if (context.Match(module_name, kSuppressionLeak, &s))
+      return s;
+
+  // Suppress by file or function name.
+  SymbolizedStack *frames = Symbolizer::GetOrInit()->SymbolizePC(addr);
+  for (SymbolizedStack *cur = frames; cur; cur = cur->next) {
+    if (context.Match(cur->info.function, kSuppressionLeak, &s) ||
+        context.Match(cur->info.file, kSuppressionLeak, &s)) {
+      break;
+    }
+  }
+  frames->ClearAll();
+  return s;
+}
+
+Suppression *LeakSuppressionContext::GetSuppressionForStack(
+    u32 stack_trace_id) {
+  LazyInit();
+  StackTrace stack = StackDepotGet(stack_trace_id);
+  for (uptr i = 0; i < stack.size; i++) {
+#if SANITIZER_EMSCRIPTEN
+    // On Emscripten, the stack trace is the actual call site, not
+    // the code that would be executed after the return.
+    // Therefore, StackTrace::GetPreviousInstructionPc is not needed.
+    Suppression *s = GetSuppressionForAddr(stack.trace[i]);
+#else
+    Suppression *s = GetSuppressionForAddr(
+        StackTrace::GetPreviousInstructionPc(stack.trace[i]));
+#endif
+    if (s) {
+      suppressed_stacks_sorted = false;
+      suppressed_stacks.push_back(stack_trace_id);
+      return s;
+    }
+  }
+  return nullptr;
+}
+
+>>>>>>> 2bbe2c4b7413 (Rebase of changed from emscripten-libs-12.0.0 onto llvmorg-13.0.0)
 ///// LeakReport implementation. /////
 
 // A hard limit on the number of distinct leaks, to avoid quadratic complexity
