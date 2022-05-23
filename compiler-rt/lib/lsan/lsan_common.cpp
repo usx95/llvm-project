@@ -185,6 +185,14 @@ static uptr GetCallerPC(const StackTrace &stack) {
 // valid before reporting chunks as leaked.
 bool LeakSuppressionContext::SuppressInvalid(const StackTrace &stack) {
   uptr caller_pc = GetCallerPC(stack);
+#if SANITIZER_EMSCRIPTEN
+  // caller_pr will always be 0 if we use malloc_context_size=0 (or 1) which
+  // we recommend under emscripten to save memory.  It seems that this setting
+  // now (inadvertently?) suppreses all leaks.
+  // See https://reviews.llvm.org/D115319#3526676.
+  if (!caller_pc)
+    return false;
+#endif
   // If caller_pc is unknown, this chunk may be allocated in a coroutine. Mark
   // it as reachable, as we can't properly report its allocation stack anyway.
   return !caller_pc ||
@@ -313,7 +321,7 @@ void ScanRangeForPointers(uptr begin, uptr end, Frontier *frontier,
 #if SANITIZER_EMSCRIPTEN && !defined(__EMSCRIPTEN_PTHREADS__)
     if (cache_begin <= pp && pp < cache_end) {
       LOG_POINTERS("%p: skipping because it overlaps the cache %p-%p.\n",
-          pp, cache_begin, cache_end);
+          (void*)pp, (void*)cache_begin, (void*)cache_end);
       continue;
     }
 #endif
@@ -804,53 +812,6 @@ static int DoRecoverableLeakCheck() {
 
 void DoRecoverableLeakCheckVoid() { DoRecoverableLeakCheck(); }
 
-<<<<<<< HEAD
-=======
-Suppression *LeakSuppressionContext::GetSuppressionForAddr(uptr addr) {
-  Suppression *s = nullptr;
-
-  // Suppress by module name.
-  if (const char *module_name =
-          Symbolizer::GetOrInit()->GetModuleNameForPc(addr))
-    if (context.Match(module_name, kSuppressionLeak, &s))
-      return s;
-
-  // Suppress by file or function name.
-  SymbolizedStack *frames = Symbolizer::GetOrInit()->SymbolizePC(addr);
-  for (SymbolizedStack *cur = frames; cur; cur = cur->next) {
-    if (context.Match(cur->info.function, kSuppressionLeak, &s) ||
-        context.Match(cur->info.file, kSuppressionLeak, &s)) {
-      break;
-    }
-  }
-  frames->ClearAll();
-  return s;
-}
-
-Suppression *LeakSuppressionContext::GetSuppressionForStack(
-    u32 stack_trace_id) {
-  LazyInit();
-  StackTrace stack = StackDepotGet(stack_trace_id);
-  for (uptr i = 0; i < stack.size; i++) {
-#if SANITIZER_EMSCRIPTEN
-    // On Emscripten, the stack trace is the actual call site, not
-    // the code that would be executed after the return.
-    // Therefore, StackTrace::GetPreviousInstructionPc is not needed.
-    Suppression *s = GetSuppressionForAddr(stack.trace[i]);
-#else
-    Suppression *s = GetSuppressionForAddr(
-        StackTrace::GetPreviousInstructionPc(stack.trace[i]));
-#endif
-    if (s) {
-      suppressed_stacks_sorted = false;
-      suppressed_stacks.push_back(stack_trace_id);
-      return s;
-    }
-  }
-  return nullptr;
-}
-
->>>>>>> 2bbe2c4b7413 (Rebase of changed from emscripten-libs-12.0.0 onto llvmorg-13.0.0)
 ///// LeakReport implementation. /////
 
 // A hard limit on the number of distinct leaks, to avoid quadratic complexity

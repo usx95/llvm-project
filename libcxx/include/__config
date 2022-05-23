@@ -1,6 +1,3 @@
-// XXX EMSCRIPTEN: macros that would ordinarily be added from __config_site.in
-#define _LIBCPP_HAS_NO_VENDOR_AVAILABILITY_ANNOTATIONS
-
 // -*- C++ -*-
 //===----------------------------------------------------------------------===//
 //
@@ -1150,8 +1147,8 @@ extern "C" _LIBCPP_FUNC_VIS void __sanitizer_annotate_contiguous_container(
       defined(__APPLE__) || \
       defined(__sun__) || \
       defined(__MVS__) || \
-      defined(_AIX)
-      defined(__EMSCRIPTEN__) || \
+      defined(_AIX) || \
+      defined(__EMSCRIPTEN__)
 #    define _LIBCPP_HAS_THREAD_API_PTHREAD
 #  elif defined(__Fuchsia__)
      // TODO(44575): Switch to C11 thread API when possible.
