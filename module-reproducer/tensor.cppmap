@@ -1,0 +1,7 @@
+module "tensor" {
+  export *
+  module "module-reproducer/tensor.h" {
+    export *
+    header "module-reproducer/tensor.h"
+  }
+}

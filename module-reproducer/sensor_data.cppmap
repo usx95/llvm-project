@@ -1,0 +1,7 @@
+module "sensor_data" {
+  export *
+  module "module-reproducer/sensor_data.h" {
+    export *
+    header "module-reproducer/sensor_data.h"
+  }
+}
