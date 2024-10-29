@@ -1,0 +1,7 @@
+module "another_lib2" {
+  export *
+  module "module_reproducer/another_lib.h" {
+    export *
+    header "module_reproducer/another_lib.h"
+  }
+}

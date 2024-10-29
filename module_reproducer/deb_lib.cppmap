@@ -1,0 +1,7 @@
+module "deb_lib" {
+  export *
+  module "module_reproducer/deb_lib.h" {
+    export *
+    header "module_reproducer/deb_lib.h"
+  }
+}
