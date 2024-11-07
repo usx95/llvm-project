@@ -1,0 +1,7 @@
+module "libA" {
+  export *
+  module "module-reproducer/flume_test_utils.h" {
+    export *
+    header "module-reproducer/flume_test_utils.h"
+  }
+}

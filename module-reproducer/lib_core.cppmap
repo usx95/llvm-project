@@ -1,0 +1,7 @@
+module "lib_core" {
+  export *
+  module "module-reproducer/stream.h" {
+    export *
+    header "module-reproducer/stream.h"
+  }
+}

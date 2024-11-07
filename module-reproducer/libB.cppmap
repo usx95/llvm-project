@@ -1,0 +1,11 @@
+module "libB" {
+  export *
+  module "module-reproducer/flume.h" {
+    export *
+    header "module-reproducer/flume.h"
+  }
+  module "module-reproducer/flume_test_utils.h" {
+    export *
+    header "module-reproducer/flume_test_utils.h"
+  }
+}
