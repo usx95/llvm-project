@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -Wdangling -Wdangling-field -Wreturn-stack-address -verify %s
+// RUN: %clang_cc1 -fsyntax-only -Wno-dangling -Wdangling-cfg -verify=cfg %s
 #include "Inputs/lifetime-analysis.h"
 struct [[gsl::Owner(int)]] MyIntOwner {
   MyIntOwner();
@@ -88,27 +89,32 @@ MyIntPointer returningLocalPointer() {
 }
 
 MyIntPointer daglingGslPtrFromLocalOwner() {
-  MyIntOwner localOwner;
+  MyIntOwner localOwner;  // cfg-note {{reference to this stack variable is returned}}
   return localOwner; // expected-warning {{address of stack memory associated with local variable 'localOwner' returned}}
+  // cfg-warning@-1 {{returning reference to a stack variable}}
 }
 
 MyLongPointerFromConversion daglingGslPtrFromLocalOwnerConv() {
-  MyLongOwnerWithConversion localOwner;
+  MyLongOwnerWithConversion localOwner;  // cfg-note {{reference to this stack variable is returned}}
   return localOwner; // expected-warning {{address of stack memory associated with local variable 'localOwner' returned}}
+  // cfg-warning@-1 {{returning reference to a stack variable}}
 }
 
 MyIntPointer danglingGslPtrFromTemporary() {
   return MyIntOwner{}; // expected-warning {{returning address of local temporary object}}
+  // cfg-warning@-1 {{returning reference to a temporary object}}
 }
 
 MyIntOwner makeTempOwner();
 
 MyIntPointer danglingGslPtrFromTemporary2() {
   return makeTempOwner(); // expected-warning {{returning address of local temporary object}}
+  // cfg-warning@-1 {{returning reference to a temporary object}}
 }
 
 MyLongPointerFromConversion danglingGslPtrFromTemporaryConv() {
   return MyLongOwnerWithConversion{}; // expected-warning {{returning address of local temporary object}}
+  // cfg-warning@-1 {{returning reference to a temporary object}}
 }
 
 int *noFalsePositive(MyIntOwner &o) {
@@ -409,8 +415,9 @@ MyIntPointer handleDerivedToBaseCast1(MySpecialIntPointer ptr) {
   return ptr;
 }
 
-MyIntPointer handleDerivedToBaseCast2(MyOwnerIntPointer ptr) {
+MyIntPointer handleDerivedToBaseCast2(MyOwnerIntPointer ptr) { // cfg-note {{reference to this stack variable is returned}}
   return ptr; // expected-warning {{address of stack memory associated with parameter 'ptr' returned}}
+  // cfg-warning@-1 {{returning reference to a stack variable}}
 }
 
 std::vector<int>::iterator noFalsePositiveWithVectorOfPointers() {
@@ -615,10 +622,11 @@ std::string_view test5() {
 
 // Pointer<Pointer> from Owner<Pointer>
 // Prevent regression GH108463
-Span<int*> test6(std::vector<int*> v) {
+Span<int*> test6(std::vector<int*> v) { // cfg-note {{reference to this stack variable is returned}}
   Span<int *> dangling = std::vector<int*>(); // expected-warning {{object backing the pointer}}
   dangling = std::vector<int*>(); // expected-warning {{object backing the pointer}}
   return v; // expected-warning {{address of stack memory}}
+  // cfg-warning@-1 {{returning reference to a stack variable}}
 }
 
 /////// From Owner<Owner<Pointer>> ///////

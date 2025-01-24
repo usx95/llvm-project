@@ -123,6 +123,14 @@ std::string_view copy_of_global_str() {
   return sv; // expected-warning {{returning reference to a stack variable}}
 }
 
+struct Struct { std::string s; };
+std::string_view field() {
+  Struct s;
+  std::string_view sv;
+  sv = s.s;
+  return sv; // FIXME.
+}
+
 // TODO: Use lifetimebound in function calls. Use Pointer to Owner of pointer
 // std::string_view containerOfString() {
 //   std::vector<std::string> local;
