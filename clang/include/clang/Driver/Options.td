@@ -1934,7 +1934,7 @@ defm bounds_safety : BoolFOption<
 
 defm lifetime_safety : BoolFOption<
   "experimental-lifetime-safety",
-  LangOpts<"EnableLifetimeSafety">, DefaultFalse,
+  LangOpts<"EnableLifetimeSafety">, DefaultTrue,
   PosFlag<SetTrue, [], [CC1Option], "Enable">,
   NegFlag<SetFalse, [], [CC1Option], "Disable">,
   BothFlags<[], [CC1Option],
