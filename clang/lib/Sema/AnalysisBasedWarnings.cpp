@@ -3178,7 +3178,7 @@ void clang::sema::AnalysisBasedWarnings::IssueWarnings(
       !Diags.isIgnored(diag::warn_lifetime_safety_noescape_escapes,
                        D->getBeginLoc());
   bool EnableLifetimeSafetyAnalysis =
-      S.getLangOpts().EnableLifetimeSafety &&
+      true || S.getLangOpts().EnableLifetimeSafety &&
       !S.getLangOpts().EnableLifetimeSafetyTUAnalysis &&
       IsLifetimeSafetyDiagnosticEnabled;
 
