@@ -3038,10 +3038,7 @@ void clang::sema::AnalysisBasedWarnings::IssueWarnings(
   AC.getCFGBuildOptions().AddCXXNewAllocator = false;
   AC.getCFGBuildOptions().AddCXXDefaultInitExprInCtors = true;
 
-  bool EnableLifetimeSafetyAnalysis =
-      S.getLangOpts().EnableLifetimeSafety &&
-      !S.getLangOpts().EnableLifetimeSafetyTUAnalysis &&
-      lifetimes::IsLifetimeSafetyDiagnosticEnabled(S, D);
+  bool EnableLifetimeSafetyAnalysis = true;
 
   // Force that certain expressions appear as CFGElements in the CFG.  This
   // is used to speed up various analyses.
