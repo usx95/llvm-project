@@ -82,9 +82,10 @@ void UseFact::dump(llvm::raw_ostream &OS, const LoanManager &,
   OS << "Use (";
   size_t NumUsedOrigins = getUsedOrigins()->getLength();
   size_t I = 0;
-  for (const OriginList *Cur = getUsedOrigins(); Cur;
-       Cur = Cur->peelOuterOrigin(), ++I) {
-    OM.dump(Cur->getOuterOriginID(), OS);
+  // TODO: pointee-chain only; extend to field children.
+  for (const OriginNode *Cur = getUsedOrigins(); Cur;
+       Cur = Cur->getPointeeChild(), ++I) {
+    OM.dump(Cur->getOriginID(), OS);
     if (I < NumUsedOrigins - 1)
       OS << ", ";
   }

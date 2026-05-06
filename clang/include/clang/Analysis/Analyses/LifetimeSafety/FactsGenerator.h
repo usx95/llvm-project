@@ -57,13 +57,13 @@ public:
   void VisitCXXDeleteExpr(const CXXDeleteExpr *DE);
 
 private:
-  OriginList *getOriginsList(const ValueDecl &D);
-  OriginList *getOriginsList(const Expr &E);
+  OriginNode *getOriginNode(const ValueDecl &D);
+  OriginNode *getOriginNode(const Expr &E);
 
   bool hasOrigins(QualType QT) const;
   bool hasOrigins(const Expr *E) const;
 
-  void flow(OriginList *Dst, OriginList *Src, bool Kill);
+  void flow(OriginNode *Dst, OriginNode *Src, bool Kill);
 
   void handleAssignment(const Expr *LHSExpr, const Expr *RHSExpr);
 
@@ -110,12 +110,12 @@ private:
 
   template <typename Destination, typename Source>
   void flowOrigin(const Destination &D, const Source &S) {
-    flow(getOriginsList(D), getOriginsList(S), /*Kill=*/false);
+    flow(getOriginNode(D), getOriginNode(S), /*Kill=*/false);
   }
 
   template <typename Destination, typename Source>
   void killAndFlowOrigin(const Destination &D, const Source &S) {
-    flow(getOriginsList(D), getOriginsList(S), /*Kill=*/true);
+    flow(getOriginNode(D), getOriginNode(S), /*Kill=*/true);
   }
 
   /// Checks if the expression is a `void("__lifetime_test_point_...")` cast.
@@ -128,6 +128,10 @@ private:
   void handleUse(const Expr *E);
 
   void markUseAsWrite(const DeclRefExpr *DRE);
+
+  /// Walks the full subtree so origins on the pointee chain and on field
+  /// children both escape with the returned value.
+  void emitReturnEscapes(OriginNode *N, const Expr *RetExpr);
 
   bool escapesViaReturn(OriginID OID) const;
 
